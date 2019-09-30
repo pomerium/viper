@@ -1,4 +1,4 @@
-go_import_path: github.com/spf13/viper
+go_import_path: github.com/pomerium/viper
 
 language: go
 
@@ -25,8 +25,4 @@ matrix:
 script:
   - go install ./...
   - diff -u <(echo -n) <(gofmt -d .)
-  - go test -v ./...
-
-after_success:
-  - go get -u -d github.com/spf13/hugo
-  - cd $GOPATH/src/github.com/spf13/hugo && make && ./hugo -s docs && cd -
+  - go test -race -v ./...
