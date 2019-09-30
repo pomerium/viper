@@ -205,6 +205,8 @@ type Viper struct {
 	properties *properties.Properties
 
 	onConfigChange func(fsnotify.Event)
+
+	mu sync.RWMutex
 }
 
 // New returns an initialized Viper instance.
@@ -355,6 +357,8 @@ func (v *Viper) WatchConfig() {
 // Viper will use this and not check any of the config paths.
 func SetConfigFile(in string) { v.SetConfigFile(in) }
 func (v *Viper) SetConfigFile(in string) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
 	if in != "" {
 		v.configFile = in
 	}
@@ -365,12 +369,17 @@ func (v *Viper) SetConfigFile(in string) {
 // variables that start with "SPF_".
 func SetEnvPrefix(in string) { v.SetEnvPrefix(in) }
 func (v *Viper) SetEnvPrefix(in string) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
 	if in != "" {
 		v.envPrefix = in
 	}
 }
 
 func (v *Viper) mergeWithEnvPrefix(in string) string {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+
 	if v.envPrefix != "" {
 		return strings.ToUpper(v.envPrefix + "_" + in)
 	}
@@ -404,13 +413,19 @@ func (v *Viper) getEnv(key string) (string, bool) {
 }
 
 // ConfigFileUsed returns the file used to populate the config registry.
-func ConfigFileUsed() string            { return v.ConfigFileUsed() }
-func (v *Viper) ConfigFileUsed() string { return v.configFile }
+func ConfigFileUsed() string { return v.ConfigFileUsed() }
+func (v *Viper) ConfigFileUsed() string {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+	return v.configFile
+}
 
 // AddConfigPath adds a path for Viper to search for the config file in.
 // Can be called multiple times to define multiple search paths.
 func AddConfigPath(in string) { v.AddConfigPath(in) }
 func (v *Viper) AddConfigPath(in string) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
 	if in != "" {
 		absin := absPathify(in)
 		jww.INFO.Println("adding", absin, "to paths to search")
@@ -1820,6 +1835,8 @@ func (v *Viper) SetFs(fs afero.Fs) {
 // Does not include extension.
 func SetConfigName(in string) { v.SetConfigName(in) }
 func (v *Viper) SetConfigName(in string) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
 	if in != "" {
 		v.configName = in
 		v.configFile = ""
@@ -1830,6 +1847,8 @@ func (v *Viper) SetConfigName(in string) {
 // remote source, e.g. "json".
 func SetConfigType(in string) { v.SetConfigType(in) }
 func (v *Viper) SetConfigType(in string) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
 	if in != "" {
 		v.configType = in
 	}
@@ -1861,6 +1880,8 @@ func (v *Viper) getConfigType() string {
 }
 
 func (v *Viper) getConfigFile() (string, error) {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
 	if v.configFile == "" {
 		cf, err := v.findConfigFile()
 		if err != nil {
@@ -1888,7 +1909,6 @@ func (v *Viper) searchInPath(in string) (filename string) {
 // Returns the first path that exists (and is a config file).
 func (v *Viper) findConfigFile() (string, error) {
 	jww.INFO.Println("Searching for config in ", v.configPaths)
-
 	for _, cp := range v.configPaths {
 		file := v.searchInPath(cp)
 		if file != "" {
@@ -1902,6 +1922,8 @@ func (v *Viper) findConfigFile() (string, error) {
 // purposes.
 func Debug() { v.Debug() }
 func (v *Viper) Debug() {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
 	fmt.Printf("Aliases:\n%#v\n", v.aliases)
 	fmt.Printf("Override:\n%#v\n", v.override)
 	fmt.Printf("PFlags:\n%#v\n", v.pflags)
